@@ -1,6 +1,6 @@
 import TensorFlow
 
-public protocol  MyEuclideanDifferentiable: EuclideanDifferentiable {
+public protocol  MyEuclideanDifferentiable: EuclideanDifferentiable & KeyPathIterable {
     var differentiableVectorView: TangentVector { get set }
 }
 
@@ -41,11 +41,12 @@ public class Lookahead<Opt: Optimizer, Model: MyEuclideanDifferentiable & Layer>
         step += 1
         optimizer.update(&model, along: direction)
         if step % outerStep == 0 {
-            for kp in slowWeights.recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
-                model.differentiableVectorView[keyPath: kp] = (model.differentiableVectorView[keyPath: kp] +
-                                                               slowWeights[keyPath: kp]) / Float(2)
+            var updateWeights = model.differentiableVectorView
+            for kp in updateWeights.recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
+                updateWeights[keyPath: kp] = (updateWeights[keyPath: kp] + slowWeights[keyPath: kp]) / Float(2)
             }
-            slowWeights = model.differentiableVectorView
+            model.differentiableVectorView = updateWeights
+            slowWeights = updateWeights
         }
     }
 }
