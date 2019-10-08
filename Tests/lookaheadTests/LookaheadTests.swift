@@ -3,53 +3,13 @@ import TensorFlow
 
 @testable import Lookahead
 
-fileprivate struct MyEuclideanDifferentiableConv2D: MyEuclideanDifferentiable {
+fileprivate struct Network: Layer {
     var conv: Conv2D<Float>
-    public var differentiableVectorView: TangentVector {
-        get { TangentVector(conv: conv.differentiableVectorView) }
-        set { conv.filter = newValue.conv.filter; conv.bias = newValue.conv.bias }
-    }
-    
-    init(filterShape: (Int, Int, Int, Int)){
-        self.conv = Conv2D(filterShape: filterShape,
-                            strides: (1,1),
-                            padding: .same,
-                            activation: relu )
-    }
-    @differentiable
-    func callAsFunction(_ input: Tensor<Float>) -> Tensor<Float> {
-        conv(input)
-    }
-}
-
-fileprivate struct MyEuclideanDifferentiableDense: MyEuclideanDifferentiable {
     var dense: Dense<Float>
-    public var differentiableVectorView: TangentVector {
-        get { TangentVector(dense: dense.differentiableVectorView) }
-        set { dense.weight = newValue.dense.weight; dense.bias = newValue.dense.bias }
-    }
-    
-    init(inputSize: Int, outputSize: Int) {
-        self.dense = Dense(inputSize: inputSize, outputSize: outputSize)
-    }
-    
-    @differentiable
-    func callAsFunction(_ input: Tensor<Float>) -> Tensor<Float> {
-        dense(input)
-    }
-}
 
-fileprivate struct Network: Layer & MyEuclideanDifferentiable {
-    var conv: MyEuclideanDifferentiableConv2D
-    var dense: MyEuclideanDifferentiableDense
-    var differentiableVectorView: TangentVector {
-        get { TangentVector(conv: conv.differentiableVectorView, dense: dense.differentiableVectorView) }
-        set { conv.differentiableVectorView = newValue.conv
-              dense.differentiableVectorView = newValue.dense }
-    }
     init(){
-        self.conv = MyEuclideanDifferentiableConv2D(filterShape: (3, 3, 3, 16))
-        self.dense = MyEuclideanDifferentiableDense(inputSize: 16, outputSize: 10)
+        self.conv = Conv2D(filterShape: (1, 1, 3, 4), strides: (1,1), padding: .same, activation: relu)
+        self.dense = Dense(inputSize: 4, outputSize: 2, activation: identity)
     }
     
     @differentiable
@@ -70,13 +30,14 @@ final class LookaheadTests: XCTestCase {
         let inputs = Tensor<Float>(randomNormal: [128, 32, 32, 3])
         let labels = Tensor<Int32>(randomUniform: [128],
                                    lowerBound: Tensor<Int32>(0),
-                                   upperBound: Tensor<Int32>(10))
+                                   upperBound: Tensor<Int32>(2))
         var previousLoss = Tensor<Float>(2.4)
         for ii in 1...24 {
             let (loss, grad) = valueWithGradient(at: model) {
                 softmaxCrossEntropy(logits: $0(inputs), labels: labels)
             }
-            XCTAssertLessThan(loss.scalarized(), previousLoss.scalarized())
+            print(optimizer.step, loss)
+            XCTAssertLessThan(loss.scalarized(), previousLoss.scalarized(), "loss reduces for step \(optimizer.step)")
             previousLoss = loss
             optimizer.update(&model, along: grad)
             if ii % outerStep == 0 {
@@ -101,15 +62,16 @@ final class LookaheadTests: XCTestCase {
         let inputs = Tensor<Float>(randomNormal: [128, 32, 32, 3])
         let labels = Tensor<Int32>(randomUniform: [128],
                                    lowerBound: Tensor<Int32>(0),
-                                   upperBound: Tensor<Int32>(10))
+                                   upperBound: Tensor<Int32>(2))
         var previousLoss = Tensor<Float>(2.4)
         for ii in 1...24 {
             let (loss, grad) = valueWithGradient(at: model) {
                 softmaxCrossEntropy(logits: $0(inputs), labels: labels)
             }
+            print(optimizer.step, loss)
             XCTAssertLessThan(loss.scalarized(),
                               previousLoss.scalarized(),
-                              "loss reduces with each training step")
+                              "loss reduces for step \(optimizer.step)")
             previousLoss = loss
             optimizer.update(&model, along: grad)
             if ii % outerStep1 == 0 {

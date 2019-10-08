@@ -1,22 +1,11 @@
 import TensorFlow
 
-public protocol  MyEuclideanDifferentiable: EuclideanDifferentiable {
-    var differentiableVectorView: TangentVector { get set }
-}
-
-public extension MyEuclideanDifferentiable where TangentVector == Self {
-    var differentiableVectorView: TangentVector {
-        _read { yield self }
-        _modify { yield &self }
-    }
-}
-
 public protocol HasSlowWeights {
     associatedtype Model: Differentiable
     var slowWeights: Model.TangentVector {get set}
 }
 
-public class Lookahead<Opt: Optimizer, Model: MyEuclideanDifferentiable & Layer>: Optimizer & HasSlowWeights
+public class Lookahead<Opt: Optimizer, Model: Layer>: Optimizer & HasSlowWeights
     where Opt.Model == Model,
           Model.TangentVector.VectorSpaceScalar == Float,
           Opt.Scalar: TensorFlowFloatingPoint  {
@@ -41,16 +30,19 @@ public class Lookahead<Opt: Optimizer, Model: MyEuclideanDifferentiable & Layer>
         step += 1
         optimizer.update(&model, along: direction)
         if step % outerStep == 0 {
+            var updateWeights = model.differentiableVectorView
             for kp in slowWeights.recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
-                model.differentiableVectorView[keyPath: kp] = (model.differentiableVectorView[keyPath: kp] +
-                                                               slowWeights[keyPath: kp]) / Float(2)
+                let currentWeight = updateWeights[keyPath: kp]
+                updateWeights[keyPath: kp] = (
+                    (currentWeight + slowWeights[keyPath: kp]) / Float(2))  -  currentWeight
             }
+            model.move(along: updateWeights)
             slowWeights = model.differentiableVectorView
         }
     }
 }
 
-public class LookaheadFurther<Opt: Optimizer, Model: MyEuclideanDifferentiable & Layer>: Lookahead<Opt, Model>
+public class LookaheadFurther<Opt: Optimizer, Model: Layer>: Lookahead<Opt, Model>
     where Opt: HasSlowWeights, Opt.Model == Model,
           Model.TangentVector.VectorSpaceScalar == Float,
           Opt.Scalar: TensorFlowFloatingPoint  {
