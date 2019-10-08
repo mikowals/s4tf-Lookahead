@@ -8,8 +8,8 @@ fileprivate struct Network: Layer {
     var dense: Dense<Float>
 
     init(){
-        self.conv = Conv2D(filterShape: (1, 1, 3, 4), strides: (1,1), padding: .same, activation: relu)
-        self.dense = Dense(inputSize: 4, outputSize: 2, activation: identity)
+        self.conv = Conv2D(filterShape: (3, 3, 3, 16), strides: (1,1), padding: .same, activation: relu)
+        self.dense = Dense(inputSize: 16, outputSize: 10, activation: identity)
     }
     
     @differentiable
@@ -22,27 +22,43 @@ final class LookaheadTests: XCTestCase {
     func testLookahead() {
         var model = Network()
         let outerStep = 6
-        var optimizer = Lookahead(for: model,
-                                  optimizer: SGD(for: model, learningRate: 0.1, momentum: 0.7),
+        let sgd = SGD(for: model, learningRate: 0.1, momentum: 0.7)
+        let optimizer = Lookahead(for: model,
+                                  optimizer: sgd,
                                   outerStep: outerStep)
         
         XCTAssertEqual(optimizer.slowWeights, model.differentiableVectorView)
         let inputs = Tensor<Float>(randomNormal: [128, 32, 32, 3])
         let labels = Tensor<Int32>(randomUniform: [128],
                                    lowerBound: Tensor<Int32>(0),
-                                   upperBound: Tensor<Int32>(2))
-        var previousLoss = Tensor<Float>(2.4)
+                                   upperBound: Tensor<Int32>(10))
+        var cummulativeUpdates: Network.TangentVector = .zero
         for ii in 1...24 {
-            let (loss, grad) = valueWithGradient(at: model) {
+            let grad = gradient(at: model) {
                 softmaxCrossEntropy(logits: $0(inputs), labels: labels)
             }
-            print(optimizer.step, loss)
-            XCTAssertLessThan(loss.scalarized(), previousLoss.scalarized(), "loss reduces for step \(optimizer.step)")
-            previousLoss = loss
+            var oldSlowWeights = optimizer.slowWeights
             optimizer.update(&model, along: grad)
+            cummulativeUpdates += sgd.velocity
             if ii % outerStep == 0 {
                 XCTAssertEqual(optimizer.slowWeights, model.differentiableVectorView)
+                for kp in oldSlowWeights.recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
+                    oldSlowWeights[keyPath: kp] += cummulativeUpdates[keyPath: kp] / 2.0
+                    XCTAssertTrue(
+                        optimizer.slowWeights[keyPath: kp]
+                            .isAlmostEqual(to: oldSlowWeights[keyPath: kp], tolerance: Float(1e-6)),
+                                  "outer loop matches estimate")
+                }
+                cummulativeUpdates = .zero
             } else {
+                let estimate = optimizer.slowWeights + cummulativeUpdates
+                let keyPaths = oldSlowWeights.recursivelyAllWritableKeyPaths(to: Tensor<Float>.self)
+                XCTAssertEqual(keyPaths.count, 4, "keypath finds all parameters")
+                for kp in keyPaths {
+                    XCTAssertTrue(model.differentiableVectorView[keyPath: kp].isAlmostEqual(to:
+                        estimate[keyPath: kp], tolerance: Float(1e-6)),
+                                  "inner loop matches SGD updates")
+                }
                 XCTAssertNotEqual(optimizer.slowWeights, model.differentiableVectorView)
             }
         }
@@ -52,8 +68,8 @@ final class LookaheadTests: XCTestCase {
         var model = Network()
         let outerStep1 = 6
         let outerStep2 = 12
-        var sgd = SGD(for: model, learningRate: 0.1, momentum: 0.7)
-        var l1 = Lookahead(for: model,
+        let sgd = SGD(for: model, learningRate: 0.1, momentum: 0.7)
+        let l1 = Lookahead(for: model,
                                   optimizer: sgd,
                                   outerStep: outerStep1)
         let optimizer = LookaheadFurther(for: model, optimizer: l1, outerStep: outerStep2)
@@ -62,17 +78,11 @@ final class LookaheadTests: XCTestCase {
         let inputs = Tensor<Float>(randomNormal: [128, 32, 32, 3])
         let labels = Tensor<Int32>(randomUniform: [128],
                                    lowerBound: Tensor<Int32>(0),
-                                   upperBound: Tensor<Int32>(2))
-        var previousLoss = Tensor<Float>(2.4)
+                                   upperBound: Tensor<Int32>(10))
         for ii in 1...24 {
-            let (loss, grad) = valueWithGradient(at: model) {
+            let grad = gradient(at: model) {
                 softmaxCrossEntropy(logits: $0(inputs), labels: labels)
             }
-            print(optimizer.step, loss)
-            XCTAssertLessThan(loss.scalarized(),
-                              previousLoss.scalarized(),
-                              "loss reduces for step \(optimizer.step)")
-            previousLoss = loss
             optimizer.update(&model, along: grad)
             if ii % outerStep1 == 0 {
                 XCTAssertEqual(l1.slowWeights,
@@ -108,14 +118,6 @@ final class LookaheadTests: XCTestCase {
         XCTAssertEqual(sgd.step, 24)
     }
 
-    func testKeyPathIterable() {
-        var model = Network()
-        var count = 0
-        for _ in model.differentiableVectorView.recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
-            count += 1
-        }
-        XCTAssertEqual(count, 4)
-    }
     static var allTests = [
         ("testLookahead", testLookahead),
         ("testLookaheadFurther", testLookaheadFurther),
