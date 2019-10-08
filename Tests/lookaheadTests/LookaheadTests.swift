@@ -102,11 +102,20 @@ final class LookaheadTests: XCTestCase {
                                "inner and outer slowWeights updated together")
             }
         }
+        
         XCTAssertEqual(optimizer.step, 24)
         XCTAssertEqual(l1.step, 24)
         XCTAssertEqual(sgd.step, 24)
     }
 
+    func testKeyPathIterable() {
+        var model = Network()
+        var count = 0
+        for _ in model.differentiableVectorView.recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
+            count += 1
+        }
+        XCTAssertEqual(count, 4)
+    }
     static var allTests = [
         ("testLookahead", testLookahead),
         ("testLookaheadFurther", testLookaheadFurther),
