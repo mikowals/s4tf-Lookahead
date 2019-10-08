@@ -1,7 +1,7 @@
 import XCTest
 
-import lookaheadTests
+import LookaheadTests
 
 var tests = [XCTestCaseEntry]()
-tests += lookaheadTests.allTests()
+tests += LookaheadTests.allTests()
 XCTMain(tests)
