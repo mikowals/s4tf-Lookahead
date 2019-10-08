@@ -1,6 +1,6 @@
 import TensorFlow
 
-public protocol  MyEuclideanDifferentiable: EuclideanDifferentiable & KeyPathIterable {
+public protocol  MyEuclideanDifferentiable: EuclideanDifferentiable {
     var differentiableVectorView: TangentVector { get set }
 }
 
@@ -19,6 +19,7 @@ public protocol HasSlowWeights {
 public class Lookahead<Opt: Optimizer, Model: MyEuclideanDifferentiable & Layer>: Optimizer & HasSlowWeights
     where Opt.Model == Model,
           Model.TangentVector.VectorSpaceScalar == Float,
+          Model.TangentVector: KeyPathIterable,
           Opt.Scalar: TensorFlowFloatingPoint  {
     public typealias Model = Model
     public typealias Opt = Opt
@@ -54,6 +55,7 @@ public class Lookahead<Opt: Optimizer, Model: MyEuclideanDifferentiable & Layer>
 public class LookaheadFurther<Opt: Optimizer, Model: MyEuclideanDifferentiable & Layer>: Lookahead<Opt, Model>
     where Opt: HasSlowWeights, Opt.Model == Model,
           Model.TangentVector.VectorSpaceScalar == Float,
+          Model.TangentVector: KeyPathIterable,
           Opt.Scalar: TensorFlowFloatingPoint  {
     public override var slowWeights: Model.TangentVector {
         willSet { optimizer.slowWeights = newValue }

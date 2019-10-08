@@ -3,7 +3,7 @@ import TensorFlow
 
 @testable import Lookahead
 
-fileprivate struct MyEuclideanDifferentiableConv2D: MyEuclideanDifferentiable {
+fileprivate struct MyEuclideanDifferentiableConv2D: MyEuclideanDifferentiable & Layer {
     var conv: Conv2D<Float>
     public var differentiableVectorView: TangentVector {
         get { TangentVector(conv: conv.differentiableVectorView) }
@@ -22,7 +22,7 @@ fileprivate struct MyEuclideanDifferentiableConv2D: MyEuclideanDifferentiable {
     }
 }
 
-fileprivate struct MyEuclideanDifferentiableDense: MyEuclideanDifferentiable {
+fileprivate struct MyEuclideanDifferentiableDense: MyEuclideanDifferentiable & Layer {
     var dense: Dense<Float>
     public var differentiableVectorView: TangentVector {
         get { TangentVector(dense: dense.differentiableVectorView) }
