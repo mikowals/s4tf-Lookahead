@@ -8,7 +8,6 @@ public protocol HasSlowWeights {
 public class Lookahead<Opt: Optimizer, Model: Layer>: Optimizer & HasSlowWeights
     where Opt.Model == Model,
           Model.TangentVector.VectorSpaceScalar == Float,
-          //Model.TangentVector: KeyPathIterable,
           Opt.Scalar: TensorFlowFloatingPoint  {
     public typealias Model = Model
     public typealias Opt = Opt

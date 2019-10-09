@@ -33,7 +33,7 @@ final class LookaheadTests: XCTestCase {
                                    lowerBound: Tensor<Int32>(0),
                                    upperBound: Tensor<Int32>(10))
         var cummulativeUpdates: Network.TangentVector = .zero
-        for ii in 1...24 {
+        for ii in 1...2 {
             let grad = gradient(at: model) {
                 softmaxCrossEntropy(logits: $0(inputs), labels: labels)
             }
@@ -62,12 +62,13 @@ final class LookaheadTests: XCTestCase {
                 XCTAssertNotEqual(optimizer.slowWeights, model.differentiableVectorView)
             }
         }
+        print(softmaxCrossEntropy(logits: model(inputs), labels: labels))
     }
     
     func testLookaheadFurther() {
         var model = Network()
         let outerStep1 = 6
-        let outerStep2 = 12
+        let outerStep2 = 36
         let sgd = SGD(for: model, learningRate: 0.1, momentum: 0.7)
         let l1 = Lookahead(for: model,
                                   optimizer: sgd,
@@ -79,7 +80,7 @@ final class LookaheadTests: XCTestCase {
         let labels = Tensor<Int32>(randomUniform: [128],
                                    lowerBound: Tensor<Int32>(0),
                                    upperBound: Tensor<Int32>(10))
-        for ii in 1...24 {
+        for ii in 1...1000 {
             let grad = gradient(at: model) {
                 softmaxCrossEntropy(logits: $0(inputs), labels: labels)
             }
@@ -112,10 +113,10 @@ final class LookaheadTests: XCTestCase {
                                "inner and outer slowWeights updated together")
             }
         }
-        
-        XCTAssertEqual(optimizer.step, 24)
-        XCTAssertEqual(l1.step, 24)
-        XCTAssertEqual(sgd.step, 24)
+        print(softmaxCrossEntropy(logits: model(inputs), labels: labels))
+        XCTAssertEqual(optimizer.step, 1000)
+        XCTAssertEqual(l1.step, 1000)
+        XCTAssertEqual(sgd.step, 1000)
     }
 
     static var allTests = [
