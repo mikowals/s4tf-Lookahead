@@ -4,7 +4,7 @@
 //
 //  Created by Michael Kowalski on 9/10/19.
 //
-
+/*
 import TensorFlow
 
 
@@ -76,3 +76,4 @@ public class Novograd<Model: Differentiable>: Optimizer
         model.move(along: scaledDirection)
     }
 }
+*/
