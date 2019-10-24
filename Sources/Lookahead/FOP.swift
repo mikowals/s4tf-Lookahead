@@ -89,8 +89,8 @@ public class SGDFOP<Model: EuclideanDifferentiable>: Optimizer
                     hyperGrad = -matmul(dir, matmul(prev, transposed: true, m))
                     hyperGrad -= matmul(matmul(prev, transposed: false, dir, transposed: true), m)
                 }
-                fopVelocity[keyPath: kp] = momentum * fopVelocity[keyPath: kp] - hyperGrad * learningRate * learningRate
-                matrix[keyPath: kp] += fopVelocity[keyPath: kp]
+                fopVelocity[keyPath: kp] = momentum * fopVelocity[keyPath: kp] - hyperGrad * learningRate
+                matrix[keyPath: kp] += fopVelocity[keyPath: kp] * learningRate
             }/*
             else {
                 fopDirection[keyPath: kp] = Tensor<Float>(0)
