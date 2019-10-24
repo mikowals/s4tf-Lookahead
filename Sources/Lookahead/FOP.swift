@@ -58,7 +58,7 @@ public class SGDFOP<Model: EuclideanDifferentiable>: Optimizer
                 fopVelocity[keyPath: kp] = Tensor<Float>(zeros: [t.shape[0] * t.shape[1]])
             }
             else if t.rank == 2 {
-                let std = rsqrt(Tensor<Float>(Float(t.shape[0]))) * 3
+                let std = sqrt(rsqrt(Tensor<Float>(Float(t.shape[0]))))
                 matrix[keyPath: kp] = Tensor<Float>(randomNormal: [t.shape[0], t.shape[0]],         standardDeviation: std)
                 fopVelocity[keyPath: kp] = Tensor<Float>(zeros: [t.shape[0], t.shape[0]])
             }
@@ -87,12 +87,14 @@ public class SGDFOP<Model: EuclideanDifferentiable>: Optimizer
                     fopDirection[keyPath: kp] = matmul(eye + pcm, dir)
                     let prev = previousGrad[keyPath: kp]
                     hyperGrad = -matmul(dir, matmul(prev, transposed: true, m))
-                    hyperGrad += matmul(matmul(prev, transposed: false, dir, transposed: true), m)
+                    hyperGrad -= matmul(matmul(prev, transposed: false, dir, transposed: true), m)
                 }
-                
-                fopVelocity[keyPath: kp] = momentum * fopVelocity[keyPath: kp] - hyperGrad * learningRate
+                fopVelocity[keyPath: kp] = momentum * fopVelocity[keyPath: kp] - hyperGrad * learningRate * learningRate
                 matrix[keyPath: kp] += fopVelocity[keyPath: kp]
-            }
+            }/*
+            else {
+                fopDirection[keyPath: kp] = Tensor<Float>(0)
+            }*/
         }
         optimizer.update(&model, along: fopDirection)
         previousGrad = direction

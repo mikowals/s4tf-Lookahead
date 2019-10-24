@@ -132,7 +132,7 @@ final class LookaheadTests: XCTestCase {
                                    lowerBound: Tensor<Int32>(0),
                                    upperBound: Tensor<Int32>(10))
         var previousLoss = Tensor<Float>(2.5)
-        for ii in 1...100 {
+        for ii in 1...500 {
             let (loss, grad) = valueWithGradient(at: model) {
                 softmaxCrossEntropy(logits: $0(inputs), labels: labels)
             }
