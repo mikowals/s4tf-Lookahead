@@ -12,7 +12,7 @@ import TensorFlow
 ///
 /// Reference: ["Stochastic Gradient Methods with Layer-wise Adaptive Moments for Training of Deep Networks"](
 /// https://arxiv.org/pdf/1905.11286.pdf)
-public class Novograd<Model: Differentiable>: Optimizer
+public class Novograd<Model: EuclideanDifferentiable>: Optimizer
     where Model.TangentVector: VectorProtocol & PointwiseMultiplicative & ElementaryFunctions & KeyPathIterable,
           Model.TangentVector.VectorSpaceScalar == Float {
     public typealias Model = Model

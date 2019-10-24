@@ -12,7 +12,9 @@ public class SGDFOP<Model: EuclideanDifferentiable>: Optimizer
           Model.TangentVector.VectorSpaceScalar == Float {
     public typealias Model = Model
     /// The learning rate.
-    public var learningRate: Float
+    public var learningRate: Float {
+        willSet { optimizer.learningRate = newValue }
+    }
     /// The momentum factor. It accelerates stochastic gradient descent in the relevant direction
     /// and dampens oscillations.
     public var momentum: Float
@@ -46,6 +48,7 @@ public class SGDFOP<Model: EuclideanDifferentiable>: Optimizer
         self.decay = decay
         self.nesterov = nesterov
         fopVelocity = model.differentiableVectorView
+        previousGrad = fopVelocity
         matrix = fopVelocity
         for kp in matrix.recursivelyAllWritableKeyPaths(to: Tensor<Float>.self) {
             previousGrad[keyPath: kp] = fopVelocity[keyPath: kp] * 0
