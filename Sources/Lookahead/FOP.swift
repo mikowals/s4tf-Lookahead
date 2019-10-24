@@ -59,8 +59,8 @@ public class SGDFOP<Model: EuclideanDifferentiable>: Optimizer
             }
             else if t.rank == 2 {
                 let std = sqrt(rsqrt(Tensor<Float>(Float(t.shape[0]))))
-                matrix[keyPath: kp] = Tensor<Float>(randomNormal: [t.shape[0], 10], standardDeviation: std)
-                fopVelocity[keyPath: kp] = Tensor<Float>(zeros: [t.shape[0], 10])
+                matrix[keyPath: kp] = Tensor<Float>(randomNormal: [t.shape[0], t.shape[0]],         standardDeviation: std)
+                fopVelocity[keyPath: kp] = Tensor<Float>(zeros: [t.shape[0], t.shape[0]])
             }
         }
     }
