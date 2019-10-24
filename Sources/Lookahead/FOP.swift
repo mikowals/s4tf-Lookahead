@@ -58,7 +58,7 @@ public class SGDFOP<Model: EuclideanDifferentiable>: Optimizer
                 fopVelocity[keyPath: kp] = Tensor<Float>(zeros: [t.shape[0] * t.shape[1]])
             }
             else if t.rank == 2 {
-                let std = sqrt(rsqrt(Tensor<Float>(Float(t.shape[0]))))
+                let std = rsqrt(Tensor<Float>(Float(t.shape[0]))) * 3
                 matrix[keyPath: kp] = Tensor<Float>(randomNormal: [t.shape[0], t.shape[0]],         standardDeviation: std)
                 fopVelocity[keyPath: kp] = Tensor<Float>(zeros: [t.shape[0], t.shape[0]])
             }
@@ -74,7 +74,7 @@ public class SGDFOP<Model: EuclideanDifferentiable>: Optimizer
             if dir.rank > 1 {
                 let m = matrix[keyPath: kp]
                 let pcm = matmul(m, transposed: false, m, transposed: true)
-                var hyperGrad: Tensor<Float>
+                var hyperGrad = Tensor<Float>(0)
                 if dir.rank == 4 {
                     let prev = previousGrad[keyPath: kp].reshaped(to: [pcm.shape[1], dir.shape[2] * dir.shape[3]])
                     let spatialGrad = dir.reshaped(to: [pcm.shape[1], dir.shape[2] * dir.shape[3]])
@@ -84,14 +84,12 @@ public class SGDFOP<Model: EuclideanDifferentiable>: Optimizer
                 }
                 else if dir.rank == 2 {
                     let eye = Raw.diag(diagonal: Tensor<Float>(ones: [pcm.shape[0]]))
-                    fopDirection[keyPath: kp] = matmul(learningRate * (eye + pcm), dir)
+                    fopDirection[keyPath: kp] = matmul(eye + pcm, dir)
                     let prev = previousGrad[keyPath: kp]
                     hyperGrad = -matmul(dir, matmul(prev, transposed: true, m))
                     hyperGrad += matmul(matmul(prev, transposed: false, dir, transposed: true), m)
                 }
-                else {
-                    hyperGrad = Tensor<Float>(0)
-                }
+                
                 fopVelocity[keyPath: kp] = momentum * fopVelocity[keyPath: kp] - hyperGrad * learningRate
                 matrix[keyPath: kp] += fopVelocity[keyPath: kp]
             }
