@@ -120,28 +120,40 @@ final class LookaheadTests: XCTestCase {
     }
 
     func testSGDFOP() {
-        var model = Network()
-        let optimizer = SGDFOP(for: model,
-                         optimizer: SGD(for: model,
-                                        learningRate: 0.1,
-                                        momentum: 0.9),
-                         learningRate: 0.1,
-                         momentum: 0.9)
-        let inputs = Tensor<Float>(randomNormal: [128, 32, 32, 3])
-        let labels = Tensor<Int32>(randomUniform: [128],
-                                   lowerBound: Tensor<Int32>(0),
-                                   upperBound: Tensor<Int32>(10))
-        var previousLoss = Tensor<Float>(2.5)
-        for ii in 1...500 {
-            let (loss, grad) = valueWithGradient(at: model) {
-                softmaxCrossEntropy(logits: $0(inputs), labels: labels)
-            }
-            print(ii, loss)
-            XCTAssertLessThan(loss.scalarized(), previousLoss.scalarized())
-            previousLoss = loss
-            optimizer.update(&model, along: grad)
-        }
+        var losses = Float(0.0)
+        var min = Float(2.5)
+        var max = Float(0)
+        for jj in 1...10 {
+            var model = Network()
+            let optimizer = SGDFOP(for: model,
+                             optimizer: SGD(for: model,
+                                            learningRate: 0.1,
+                                            momentum: 0.0),
+                             learningRate: 0.1,
+                             momentum: 0.0)
+            let inputs = Tensor<Float>(randomNormal: [128, 32, 32, 3])
+            let labels = Tensor<Int32>(randomUniform: [128],
+                                       lowerBound: Tensor<Int32>(0),
+                                       upperBound: Tensor<Int32>(10))
+            var previousLoss = Tensor<Float>(2.5)
         
+            for ii in 1...100 {
+                let (loss, grad) = valueWithGradient(at: model) {
+                    softmaxCrossEntropy(logits: $0(inputs), labels: labels)
+                }
+                //print(ii, loss)
+                XCTAssertLessThan(loss.scalarized(), previousLoss.scalarized())
+                previousLoss = loss
+                optimizer.update(&model, along: grad)
+                if ii == 100 {
+                    losses += loss.scalarized()
+                    if max < loss.scalarized() { max = loss.scalarized() }
+                    if min > loss.scalarized() { min = loss.scalarized() }
+                }
+            }
+            
+        }
+        print("avg: ", losses / 10.0, "min: ", min, "max: ", max)
     }
     
     static var allTests = [

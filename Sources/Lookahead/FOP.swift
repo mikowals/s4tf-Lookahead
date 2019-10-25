@@ -12,9 +12,7 @@ public class SGDFOP<Model: EuclideanDifferentiable>: Optimizer
           Model.TangentVector.VectorSpaceScalar == Float {
     public typealias Model = Model
     /// The learning rate.
-    public var learningRate: Float {
-        willSet { optimizer.learningRate = newValue }
-    }
+    public var learningRate: Float
     /// The momentum factor. It accelerates stochastic gradient descent in the relevant direction
     /// and dampens oscillations.
     public var momentum: Float
@@ -55,11 +53,11 @@ public class SGDFOP<Model: EuclideanDifferentiable>: Optimizer
             let t = matrix[keyPath: kp]
             if t.rank == 4 {
                 matrix[keyPath: kp] = Raw.diag(diagonal: Tensor<Float>(ones: [t.shape[0] * t.shape[1]]))
-                fopVelocity[keyPath: kp] = Tensor<Float>(zeros: [t.shape[0] * t.shape[1]])
+                fopVelocity[keyPath: kp] = Tensor<Float>(zeros: matrix[keyPath: kp].shape)
             }
             else if t.rank == 2 {
                 let std = sqrt(rsqrt(Tensor<Float>(Float(t.shape[0]))))
-                matrix[keyPath: kp] = Tensor<Float>(randomNormal: [t.shape[0], t.shape[0]],         standardDeviation: std)
+                matrix[keyPath: kp] = Tensor<Float>(randomNormal: [t.shape[0], t.shape[0]], standardDeviation: std)
                 fopVelocity[keyPath: kp] = Tensor<Float>(zeros: [t.shape[0], t.shape[0]])
             }
         }
@@ -79,22 +77,31 @@ public class SGDFOP<Model: EuclideanDifferentiable>: Optimizer
                     let prev = previousGrad[keyPath: kp].reshaped(to: [pcm.shape[1], dir.shape[2] * dir.shape[3]])
                     let spatialGrad = dir.reshaped(to: [pcm.shape[1], dir.shape[2] * dir.shape[3]])
                     fopDirection[keyPath: kp] = matmul(pcm, spatialGrad).reshaped(to: dir.shape)
+                    /*
                     hyperGrad = -matmul(spatialGrad, matmul(prev, transposed: true, m))
-                    hyperGrad += matmul(matmul(prev, transposed: false, spatialGrad, transposed: true), m)
+                    hyperGrad -= matmul(matmul(prev, transposed: false, spatialGrad, transposed: true), m)
+                    */
+
+                    hyperGrad = -matmul(matmul(spatialGrad, transposed: false, prev, transposed: true) +
+                                        matmul(prev, transposed: false, spatialGrad, transposed: true), m)
                 }
                 else if dir.rank == 2 {
                     let eye = Raw.diag(diagonal: Tensor<Float>(ones: [pcm.shape[0]]))
                     fopDirection[keyPath: kp] = matmul(eye + pcm, dir)
                     let prev = previousGrad[keyPath: kp]
+                    /*
                     hyperGrad = -matmul(dir, matmul(prev, transposed: true, m))
                     hyperGrad -= matmul(matmul(prev, transposed: false, dir, transposed: true), m)
+                    */
+                    hyperGrad = -matmul(matmul(dir, transposed: false, prev, transposed: true) +
+                                        matmul(prev, transposed: false, dir, transposed: true), m)
                 }
                 fopVelocity[keyPath: kp] = momentum * fopVelocity[keyPath: kp] - hyperGrad * learningRate
-                matrix[keyPath: kp] += fopVelocity[keyPath: kp] * learningRate
-            }/*
+                matrix[keyPath: kp] += fopVelocity[keyPath: kp]
+            }
             else {
                 fopDirection[keyPath: kp] = Tensor<Float>(0)
-            }*/
+            }
         }
         optimizer.update(&model, along: fopDirection)
         previousGrad = direction
