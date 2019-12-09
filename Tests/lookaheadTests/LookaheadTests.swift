@@ -4,17 +4,20 @@ import TensorFlow
 @testable import Lookahead
 
 fileprivate struct Network: Layer {
-    var conv: Conv2D<Float>
+    var conv1, conv2, conv3: Conv2D<Float>
     var dense: Dense<Float>
 
     init(){
-        self.conv = Conv2D(filterShape: (3, 3, 3, 16), strides: (1,1), padding: .same, activation: relu)
-        self.dense = Dense(inputSize: 16, outputSize: 10, activation: identity)
+        self.conv1 = Conv2D(filterShape: (3, 3, 3, 16), strides: (1,1), padding: .same, activation: relu)
+        self.conv2 = Conv2D(filterShape: (3, 3, 16, 32), strides: (1,1), padding: .same, activation: relu)
+        self.conv3 = Conv2D(filterShape: (3, 3, 32, 32), strides: (1,1), padding: .same, activation: relu)
+        self.dense = Dense(inputSize: 32, outputSize: 10, activation: identity)
     }
     
     @differentiable
     func callAsFunction(_ input: Tensor<Float>) -> Tensor<Float> {
-        return dense(conv(input).mean(squeezingAxes: [1, 2]))
+        let tmp = conv3(conv2(conv1(input)))
+        return dense(tmp.mean(squeezingAxes: [1, 2]))
     }
 }
 
@@ -125,13 +128,12 @@ final class LookaheadTests: XCTestCase {
         var max = Float(0)
         for jj in 1...10 {
             var model = Network()
+            let sgd = SGD(for: model, learningRate: 0.1, momentum: 0.9)
             let optimizer = SGDFOP(for: model,
-                             optimizer: SGD(for: model,
-                                            learningRate: 0.1,
-                                            momentum: 0.0),
-                             learningRate: 0.1,
-                             momentum: 0.0)
-            let inputs = Tensor<Float>(randomNormal: [128, 32, 32, 3])
+                             optimizer: sgd,
+                             learningRate: 0.001,
+                             momentum: 0.95)
+            let inputs = Tensor<Float>(randomNormal: [128, 8, 8, 3])
             let labels = Tensor<Int32>(randomUniform: [128],
                                        lowerBound: Tensor<Int32>(0),
                                        upperBound: Tensor<Int32>(10))
